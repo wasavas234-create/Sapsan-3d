@@ -1,309 +1,576 @@
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>САПСАН 3D</title>
+<meta name="theme-color" content="#071522">
+<title>Сапсан 3D — железнодорожный симулятор</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;overflow:hidden;background:#101d2b;color:white;font-family:Arial}
+html,body,#stage{margin:0;width:100%;height:100%;overflow:hidden;background:#9bbbd0;font-family:system-ui;color:white;touch-action:none}
 canvas{display:block}
-#hud{position:fixed;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;z-index:2;pointer-events:none}
-.panel{background:#071521dd;padding:12px;border-radius:12px;font-size:14px}
-#controls{position:fixed;bottom:20px;left:0;right:0;display:flex;justify-content:space-around;z-index:3}
-button{border:1px solid #ffffff55;background:#1268a8;color:white;border-radius:15px;padding:17px;font-size:22px;touch-action:none}
-#overlay{position:fixed;inset:0;background:#061321ed;display:grid;place-items:center;text-align:center;z-index:5;padding:20px}
-#overlay button{font-size:20px;padding:17px 35px}
-#help{font-size:13px;color:#b7d0e6;line-height:1.6}
+#hud{position:fixed;inset:0;pointer-events:none;padding:10px;display:flex;flex-direction:column;justify-content:space-between}
+.top{display:flex;justify-content:space-between;gap:8px}
+.panel{background:#071827df;border:1px solid #c4e9ff55;border-radius:14px;padding:9px 12px}
+.brand{font-size:12px;font-weight:900;letter-spacing:.1em;color:#bce9ff}
+.speed{font-size:27px;font-weight:900}
+.small{font-size:10px;color:#b9cddd}
+.meter{height:5px;background:#31495a;border-radius:9px;margin-top:5px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:#51e0cb}
+#mission{position:absolute;top:95px;left:50%;transform:translateX(-50%);width:min(92%,420px);background:#071827d9;border:1px solid #a9dfff55;border-radius:13px;padding:9px 12px;text-align:center;font-size:12px}
+#controls{display:flex;justify-content:space-between;align-items:end;gap:8px;pointer-events:none}
+.cluster{display:flex;gap:7px;pointer-events:auto}
+.ctl{width:58px;height:58px;border:1px solid #d5f1ff77;border-radius:14px;background:#075c8edb;color:white;font-size:22px;font-weight:900;touch-action:none}
+.ctl small{display:block;font-size:9px}
+.ctl.active{background:#13a4b8}
+#intro{position:fixed;inset:0;background:#061522c9;display:grid;place-items:center;padding:20px;text-align:center;z-index:5}
+#intro .card{width:min(100%,480px);background:#0a2030f2;border:1px solid #b4e5ff55;border-radius:22px;padding:23px}
+h1{font-size:clamp(28px,8vw,48px);margin:0 0 5px}
+p{color:#c7dbe8;font-size:13px;line-height:1.5}
+button.start{background:linear-gradient(135deg,#1387b8,#07547f);border:1px solid #bceaff77;border-radius:13px;padding:14px 22px;color:white;font-weight:900;font-size:16px}
+#toast{position:fixed;left:50%;top:48%;transform:translate(-50%,-50%);background:#081a2bea;border:1px solid #c4eaff66;border-radius:18px;padding:17px 20px;max-width:88%;text-align:center;display:none;z-index:4}
+#toast button{margin:6px 4px 0;padding:10px 13px;border:0;border-radius:10px;background:#087ca9;color:#fff;font-weight:800}
+#safety{position:fixed;right:10px;top:95px;display:block;pointer-events:auto;background:#087a58;border:1px solid #b6ffdf;border-radius:10px;padding:7px 10px;font-size:11px;font-weight:800}
+@media(orientation:landscape){
+#mission{top:78px;left:50%;width:min(55%,480px)}
+.ctl{width:66px;height:58px}
+}
 </style>
 </head>
 <body>
+<div id="stage"></div>
 
 <div id="hud">
- <div class="panel">🦅 САПСАН 3D<br>Скорость: <span id="speed">180</span> км/ч</div>
- <div class="panel">Очки: <span id="score">0</span></div>
+<div class="top">
+<div class="panel">
+<div class="brand">САПСАН 3D · ЖЕЛЕЗНОДОРОЖНЫЙ СИМУЛЯТОР</div>
+<div class="small" id="mode">РЕЖИМ: УПРАВЛЕНИЕ ПОЕЗДОМ</div>
+<div class="meter"><i id="power"></i></div>
+</div>
+<div class="panel" style="text-align:right">
+<div class="small">СКОРОСТЬ</div>
+<div class="speed"><span id="speed">0</span> <span style="font-size:12px">км/ч</span></div>
+<div class="small" id="score">Очки: 0</div>
+</div>
 </div>
 
-<div id="overlay">
- <div>
-  <h1>🦅 САПСАН 3D</h1>
-  <h3>Высокоскоростное испытание</h3>
-  <p id="help">Летай рядом с поездом, собирай кольца<br>и устанавливай рекорды.</p>
-  <button onclick="startGame()">НАЧАТЬ ИГРУ</button>
- </div>
-</div>
+<div id="mission">ЗАДАНИЕ: разгонись плавно и удерживай скорость в зелёной зоне</div>
 
 <div id="controls">
- <button id="left">◀</button>
- <button id="up">▲</button>
- <button id="down">▼</button>
- <button id="right">▶</button>
- <button id="sound">🔊</button>
+<div class="cluster">
+<button class="ctl" data-k="left">◀<small>ВЛЕВО</small></button>
+<button class="ctl" data-k="right">▶<small>ВПРАВО</small></button>
+</div>
+<div class="cluster">
+<button class="ctl" data-k="brake">▼<small>ТОРМОЗ</small></button>
+<button class="ctl" data-k="gas">▲<small>ТЯГА</small></button>
+<button class="ctl" id="horn">📣<small>СИГНАЛ</small></button>
+</div>
+</div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
+<button id="safety" type="button">🛟 ТРАНСПОРТНАЯ БЕЗОПАСНОСТЬ</button>
+<div id="toast"></div>
+
+<div id="intro">
+<div class="card">
+<div class="brand">HIGH-SPEED RAIL EXPERIENCE</div>
+<h1>САПСАН 3D</h1>
+<p>Железнодорожный симулятор с физикой разгона и торможения, звуками и заданиями по транспортной безопасности.</p>
+<p><b>Управление:</b> удерживай «ТЯГА» для разгона, «ТОРМОЗ» для служебного торможения. На телефоне удобнее играть горизонтально.</p>
+<button class="start" id="begin">НАЧАТЬ СИМУЛЯТОР</button>
+<p class="small">Используется внешняя модель скоростного поезда общего типа, а не точная заводская модель Сапсана.</p>
+</div>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import {GLTFLoader} from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+
+const $=s=>document.querySelector(s);
 const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x91b8d9);
-scene.fog=new THREE.Fog(0x91b8d9,35,180);
+scene.background=new THREE.Color(0x9bbbd0);
+scene.fog=new THREE.Fog(0x9bbbd0,150,800);
 
-const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,.1,500);
-camera.position.set(0,5,12);
-
-const renderer=new THREE.WebGLRenderer({antialias:true});
+const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.1,1500);
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 renderer.setSize(innerWidth,innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));
 renderer.shadowMap.enabled=true;
-renderer.outputEncoding=THREE.sRGBEncoding;
-document.body.appendChild(renderer.domElement);
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.05;
+$('#stage').appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xffffff,0x526477,2));
-const sunlight=new THREE.DirectionalLight(0xffffff,2.3);
-sunlight.position.set(15,30,10);
-sunlight.castShadow=true;
-scene.add(sunlight);
+scene.add(new THREE.HemisphereLight(0xeaf7ff,0x56615c,2.1));
+let sun=new THREE.DirectionalLight(0xffefcf,2.7);
+sun.position.set(-70,110,40);
+sun.castShadow=true;
+sun.shadow.mapSize.set(1024,1024);
+scene.add(sun);
+
+const mat=(c,m=0,r=.7)=>new THREE.MeshStandardMaterial({color:c,metalness:m,roughness:r});
+
+function cube(p,w,h,d,m,x,y,z){
+let o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);
+o.position.set(x,y,z);
+o.castShadow=true;
+o.receiveShadow=true;
+p.add(o);
+return o;
+}
 
 // Земля
 const ground=new THREE.Mesh(
- new THREE.PlaneGeometry(500,500),
- new THREE.MeshStandardMaterial({color:0x52734b})
+new THREE.PlaneGeometry(2200,2200),
+mat(0x627c69)
 );
 ground.rotation.x=-Math.PI/2;
-ground.position.y=-2;
+ground.position.y=-.3;
+ground.receiveShadow=true;
 scene.add(ground);
 
-// Рельсы
-const railMat=new THREE.MeshStandardMaterial({color:0x444b53,metalness:.7});
-for(const x of [-2,2]){
- const rail=new THREE.Mesh(new THREE.BoxGeometry(.14,.17,300),railMat);
- rail.position.set(x,-1.65,-100);
- scene.add(rail);
+// Железнодорожные пути
+const railmat=mat(0x8c9aa2,.85,.28);
+const wood=mat(0x4e4840);
+const track=new THREE.Group();
+scene.add(track);
+
+for(const x of [-1.15,1.15]){
+cube(track,.14,.18,1300,railmat,x,.12,-620);
 }
 
-// Шпалы
-const sleepers=[];
-for(let z=10;z>-200;z-=2){
- const s=new THREE.Mesh(
-  new THREE.BoxGeometry(5,.15,.4),
-  new THREE.MeshStandardMaterial({color:0x51402f})
- );
- s.position.set(0,-1.76,z);
- scene.add(s);
- sleepers.push(s);
+for(let i=0;i<270;i++){
+cube(track,2.95,.16,.34,wood,0,.01,-i*4.5);
 }
 
-// Поезд
-const train=new THREE.Group();
-const white=new THREE.MeshStandardMaterial({color:0xe7ebef,roughness:.3});
-const blue=new THREE.MeshStandardMaterial({color:0x164e9c,metalness:.4});
-
-const body=new THREE.Mesh(new THREE.BoxGeometry(3,3,16),white);
-train.add(body);
-
-const stripe=new THREE.Mesh(new THREE.BoxGeometry(3.04,.45,16.1),blue);
-stripe.position.y=-.55;
-train.add(stripe);
-
-const nose=new THREE.Mesh(new THREE.ConeGeometry(1.5,4,4),white);
-nose.rotation.x=Math.PI/2;
-nose.position.set(0,.1,-10);
-train.add(nose);
-
-for(let i=0;i<8;i++){
- const window=new THREE.Mesh(
-  new THREE.BoxGeometry(.04,.65,1.3),
-  new THREE.MeshStandardMaterial({color:0x172d46,metalness:.7})
- );
- window.position.set(1.52,.65,-6+i*1.7);
- train.add(window);
+for(let i=0;i<65;i++){
+cube(track,3.5,.13,12,mat(0x68716e),0,-.14,-i*12);
 }
-train.position.set(-7,0,-20);
+
+// 3D-модель поезда
+let train=new THREE.Group();
 scene.add(train);
+let modelReady=false;
 
-// Птица
-const bird=new THREE.Group();
-const dark=new THREE.MeshStandardMaterial({color:0x303a43,roughness:.8});
-const light=new THREE.MeshStandardMaterial({color:0xe1d9c8});
+new GLTFLoader().load(
+'https://vinish-models.pages.dev/trains/high-speed-train.glb',
+g=>{
+let model=g.scene;
+model.rotation.y=Math.PI;
+model.scale.setScalar(.92);
+model.position.y=.34;
 
-const torso=new THREE.Mesh(new THREE.SphereGeometry(.65,24,20),dark);
-torso.scale.set(.7,.8,1.6);
-bird.add(torso);
-
-const belly=new THREE.Mesh(new THREE.SphereGeometry(.5,20,16),light);
-belly.scale.set(.8,.8,.8);
-belly.position.set(0,-.2,-.4);
-bird.add(belly);
-
-const head=new THREE.Mesh(new THREE.SphereGeometry(.43,20,16),dark);
-head.position.set(0,.35,-.9);
-bird.add(head);
-
-const beak=new THREE.Mesh(
- new THREE.ConeGeometry(.16,.5,5),
- new THREE.MeshStandardMaterial({color:0xe4ae45})
-);
-beak.rotation.x=-Math.PI/2;
-beak.position.set(0,.25,-1.4);
-bird.add(beak);
-
-const wings=[];
-for(const side of [-1,1]){
- const pivot=new THREE.Group();
- pivot.position.set(side*.35,.15,0);
- const wing=new THREE.Mesh(new THREE.BoxGeometry(3,.12,1.6),dark);
- wing.position.x=side*1.3;
- pivot.add(wing);
- bird.add(pivot);
- wings.push(pivot);
+model.traverse(o=>{
+if(o.isMesh){
+o.castShadow=true;
+o.receiveShadow=true;
+if(o.material){
+o.material=Array.isArray(o.material)
+?o.material.map(m=>m.clone())
+:o.material.clone();
 }
-bird.position.set(0,1,3);
-scene.add(bird);
+}
+});
+
+train.add(model);
+modelReady=true;
+$('#mode').textContent='МОДЕЛЬ: 3D HIGH-SPEED TRAIN';
+},
+undefined,
+e=>{
+$('#mission').textContent='Не удалось загрузить 3D-модель: проверь интернет.';
+console.warn(e);
+}
+);
+
+train.position.set(0,0,0);
+
+// Контактная сеть и окружение
+const scenery=new THREE.Group();
+scene.add(scenery);
+
+const pole=mat(0x35434a,.65,.4);
+const wiremat=mat(0x252e32,.8,.3);
+
+for(let i=0;i<95;i++){
+let z=-i*12;
+for(let s of [-1,1]){
+cube(scenery,.16,7,.16,pole,s*3.65,3.5,z);
+cube(scenery,1.7,.13,.14,pole,s*2.95,6.8,z);
+
+if(i%2===0){
+cube(scenery,.12,1.4,.12,mat(0x87979c),s*5.5,.45,z);
+cube(scenery,.1,.1,1.4,mat(0x87979c),s*5.5,1.05,z);
+}
+}
+}
+
+for(let s of [-1,1]){
+let pts=[];
+for(let i=0;i<130;i++){
+pts.push(new THREE.Vector3(s*2.9,6.65,-i*7));
+}
+scenery.add(new THREE.Mesh(
+new THREE.TubeGeometry(
+new THREE.CatmullRomCurve3(pts),250,.025,6,false
+),wiremat
+));
+}
+
+// Город
+for(let i=0;i<55;i++){
+let side=i%2?1:-1;
+let z=-35-i*15;
+let h=7+(i*11%25);
+let w=9+(i*7%15);
+cube(
+scenery,w,h,w*.8,
+mat(i%3?0x8e9a9c:0xb6b8b0),
+side*(19+(i%5)*7),h/2-.2,z
+);
+}
+
+// Светофоры
+const signalGroup=new THREE.Group();
+scene.add(signalGroup);
+
+for(let i=0;i<6;i++){
+let z=-100-i*115;
+cube(signalGroup,.18,7,.18,pole,-5,3.5,z);
+cube(signalGroup,.8,1.8,.35,mat(0x222b31),-5,5.4,z+.1);
+
+for(let j=0;j<3;j++){
+let l=new THREE.Mesh(
+new THREE.SphereGeometry(.19,12,10),
+new THREE.MeshStandardMaterial({
+color:[0xe23b36,0xf0c64b,0x35d18a][j],
+emissive:[0x7c1717,0x7c5b12,0x116c39][j],
+emissiveIntensity:1.5
+})
+);
+l.position.set(-5,6-j*.58,z+.31);
+signalGroup.add(l);
+}
+}
+
+// Платформа
+const gate=new THREE.Group();
+scene.add(gate);
+cube(gate,7,.35,22,mat(0x929b9e),7,.2,-320);
+
+for(let i=0;i<5;i++){
+cube(gate,.12,1.2,.12,mat(0xd8e1e4),4+i*1.5,.8,-309);
+}
 
 // Контрольные кольца
-const rings=[];
-for(let i=0;i<12;i++){
- const ring=new THREE.Mesh(
-  new THREE.TorusGeometry(2,.09,10,40),
-  new THREE.MeshStandardMaterial({
-   color:0xffd447,emissive:0x624100
-  })
- );
- ring.position.set((Math.random()-.5)*8,1,-20-i*22);
- scene.add(ring);
- rings.push(ring);
+let rings=[];
+for(let i=0;i<7;i++){
+let r=new THREE.Mesh(
+new THREE.TorusGeometry(2.4,.1,10,36),
+new THREE.MeshStandardMaterial({
+color:0x4bdcc8,
+emissive:0x147d74,
+emissiveIntensity:1.1
+})
+);
+r.position.set(0,3,-85-i*95);
+scene.add(r);
+rings.push(r);
 }
 
-// Игровая логика
-let running=false;
-let score=0;
-let speed=180;
-let x=0,y=1;
-let keys={};
-let audio=null,engine=null,mute=false;
-let last=0;
-
-function bind(id,key){
- const b=document.getElementById(id);
- b.addEventListener('pointerdown',e=>{
-  e.preventDefault();
-  keys[key]=true;
- });
- ['pointerup','pointercancel','pointerleave'].forEach(ev=>{
-  b.addEventListener(ev,()=>keys[key]=false);
- });
-}
-bind('left','left');
-bind('right','right');
-bind('up','up');
-bind('down','down');
-
-window.addEventListener('keydown',e=>{
- keys[e.key]=true;
-});
-window.addEventListener('keyup',e=>{
- keys[e.key]=false;
-});
-
-function startGame(){
- if(!window.THREE)return;
- document.getElementById('overlay').style.display='none';
- if(!audio){
-  audio=new AudioContext();
-  engine=audio.createOscillator();
-  const gain=audio.createGain();
-  engine.type='sawtooth';
-  engine.frequency.value=100;
-  gain.gain.value=.018;
-  engine.connect(gain);
-  gain.connect(audio.destination);
-  engine.start();
- }else audio.resume();
-
- running=true;
- last=performance.now();
- animate();
-}
-
-document.getElementById('sound').onclick=()=>{
- mute=!mute;
- if(audio)audio.suspend();
- if(!mute&&audio)audio.resume();
- document.getElementById('sound').textContent=mute?'🔇':'🔊';
+// Звуки
+const sounds={
+start:new Audio('https://sound-effects.casper.tw/audio/vehicle-loco-startup.093f0f92.mp3'),
+brake:new Audio('https://sound-effects.casper.tw/audio/machine-train-brake-screech.68d4c0c7.mp3')
 };
 
-function animate(){
- if(!running)return;
- requestAnimationFrame(animate);
+sounds.start.volume=.45;
+sounds.brake.volume=.55;
 
- const now=performance.now();
- const dt=Math.min((now-last)/16.67,2);
- last=now;
+Object.values(sounds).forEach(a=>a.preload='none');
 
- if(keys.left||keys.ArrowLeft||keys.a)x-=.12*dt;
- if(keys.right||keys.ArrowRight||keys.d)x+=.12*dt;
- if(keys.up||keys.ArrowUp||keys.w)y+=.09*dt;
- if(keys.down||keys.ArrowDown||keys.s)y-=.09*dt;
+let audioCtx,engineOsc,engineGain;
 
- x=Math.max(-5,Math.min(5,x));
- y=Math.max(-1,Math.min(5,y));
-
- bird.position.x+=(x-bird.position.x)*.12*dt;
- bird.position.y+=(y-bird.position.y)*.12*dt;
-
- bird.rotation.z=(bird.position.x-x)*.12;
- bird.rotation.x=(1-y)*.04;
-
- const t=now*.006;
- wings[0].rotation.z=Math.sin(t)*.38;
- wings[1].rotation.z=-Math.sin(t)*.38;
-
- camera.position.x+=(bird.position.x*.35-camera.position.x)*.04;
- camera.position.y+=(bird.position.y+4-camera.position.y)*.04;
- camera.lookAt(bird.position.x,0,-10);
-
- const movement=.65+speed/350;
-
- sleepers.forEach(s=>{
-  s.position.z+=movement*dt;
-  if(s.position.z>10)s.position.z-=300;
- });
-
- rings.forEach(r=>{
-  r.position.z+=movement*dt;
-  if(r.position.z>8){
-   r.position.z-=264;
-   r.position.x=(Math.random()-.5)*9;
-   r.position.y=Math.random()*4;
-  }
-
-  const distance=Math.hypot(
-   r.position.x-bird.position.x,
-   r.position.y-bird.position.y
-  );
-
-  if(Math.abs(r.position.z-bird.position.z)<1.5&&distance<1.8){
-   score+=10;
-   document.getElementById('score').textContent=score;
-   r.position.z=-250;
-  }
- });
-
- train.position.z+=movement*.3*dt;
- if(train.position.z>25)train.position.z=-150;
-
- speed=Math.min(350,speed+.015*dt);
- document.getElementById('speed').textContent=Math.round(speed);
-
- if(engine)engine.frequency.value=65+speed*.3;
-
- renderer.render(scene,camera);
+function audioInit(){
+if(audioCtx)return;
+audioCtx=new AudioContext();
+engineOsc=audioCtx.createOscillator();
+engineOsc.type='sawtooth';
+engineGain=audioCtx.createGain();
+engineGain.gain.value=.0001;
+engineOsc.connect(engineGain).connect(audioCtx.destination);
+engineOsc.start();
 }
 
-window.addEventListener('resize',()=>{
- camera.aspect=innerWidth/innerHeight;
- camera.updateProjectionMatrix();
- renderer.setSize(innerWidth,innerHeight);
+function horn(){
+audioInit();
+let o=audioCtx.createOscillator();
+let g=audioCtx.createGain();
+o.type='sawtooth';
+o.frequency.setValueAtTime(440,audioCtx.currentTime);
+o.frequency.setValueAtTime(370,audioCtx.currentTime+.45);
+g.gain.setValueAtTime(.11,audioCtx.currentTime);
+g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+1);
+o.connect(g).connect(audioCtx.destination);
+o.start();
+o.stop(audioCtx.currentTime+1);
+}
+
+// Игровая физика
+let speed=0,score=0,traction=0,braking=0;
+let steer=0,offset=0,started=false;
+let keys={left:false,right:false,gas:false,brake:false};
+let lastBrakeSound=0,mode='drive',missionStep=0;
+
+function setMission(t){
+$('#mission').textContent=t;
+}
+
+function showToast(t,buttons=[]){
+let el=$('#toast');
+el.innerHTML=t+buttons.map((b,i)=>
+`<button data-choice="${i}">${b.label}</button>`
+).join('');
+el.style.display='block';
+
+el.querySelectorAll('button').forEach((b,i)=>{
+b.onclick=()=>{
+el.style.display='none';
+buttons[i].action?.();
+};
 });
+}
+
+// Безопасность
+function safetyMode(){
+mode='safety';
+$('#mode').textContent='РЕЖИМ: ТРАНСПОРТНАЯ БЕЗОПАСНОСТЬ';
+$('#safety').style.display='block';
+speed=0;
+
+setMission('Выбери безопасное действие на железной дороге');
+
+showToast(
+'<b>ПРОВЕРКА ЗНАНИЙ</b><br>Поезд приближается к платформе. Где нужно ждать его?',
+[
+{label:'За жёлтой линией',action:()=>safetyAnswer(true)},
+{label:'У самого края платформы',action:()=>safetyAnswer(false)},
+{label:'На путях',action:()=>safetyAnswer(false)}
+]
+);
+}
+
+function safetyAnswer(ok){
+if(ok){
+score+=150;
+setMission('Верно! Жди поезд за линией безопасности. +150 очков');
+
+showToast(
+'✅ Правильно! Не подходи к краю платформы. <br><br>Следующее правило: никогда не выходи на пути и не пытайся пролезать под вагонами.',
+[
+{
+label:'ПОНЯТНО',
+action:()=>{
+mode='drive';
+$('#safety').style.display='block';
+$('#mode').textContent='РЕЖИМ: УПРАВЛЕНИЕ ПОЕЗДОМ';
+setMission('Задание: разгонись плавно и удерживай скорость в зелёной зоне');
+}
+}
+]
+);
+}else{
+setMission('Ошибка: держись за линией безопасности');
+
+showToast(
+'⚠️ Опасно! К путям нельзя приближаться. Ожидай поезд за линией и следуй указателям.',
+[{label:'ПОВТОРИТЬ',action:safetyMode}]
+);
+}
+}
+
+// Старт
+function begin(){
+audioInit();
+audioCtx.resume();
+started=true;
+$('#intro').style.display='none';
+setMission('Задание: разгонись плавно до 120 км/ч');
+sounds.start.play().catch(()=>{});
+}
+
+$('#begin').onclick=begin;
+$('#safety').onclick=safetyMode;
+$('#horn').onpointerdown=e=>{
+e.preventDefault();
+horn();
+};
+
+// Управление телефоном
+document.querySelectorAll('[data-k]').forEach(el=>{
+let k=el.dataset.k;
+
+el.onpointerdown=e=>{
+e.preventDefault();
+keys[k]=true;
+el.classList.add('active');
+};
+
+['pointerup','pointercancel','pointerleave'].forEach(v=>{
+el.addEventListener(v,()=>{
+keys[k]=false;
+el.classList.remove('active');
+});
+});
+});
+
+// Клавиатура
+onkeydown=e=>{
+let k={
+ArrowLeft:'left',
+ArrowRight:'right',
+ArrowUp:'gas',
+ArrowDown:'brake'
+}[e.key];
+
+if(k){
+keys[k]=true;
+e.preventDefault();
+}
+};
+
+onkeyup=e=>{
+let k={
+ArrowLeft:'left',
+ArrowRight:'right',
+ArrowUp:'gas',
+ArrowDown:'brake'
+}[e.key];
+
+if(k)keys[k]=false;
+};
+
+onresize=()=>{
+camera.aspect=innerWidth/innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(innerWidth,innerHeight);
+};
+
+let prev=performance.now();
+let distance=0;
+
+// Главный игровой цикл
+function loop(now){
+requestAnimationFrame(loop);
+
+let dt=Math.min((now-prev)/1000,.035);
+prev=now;
+
+if(started&&mode==='drive'){
+
+// Плавный разгон
+let target=keys.gas?1:0;
+
+traction=THREE.MathUtils.damp(
+traction,target,keys.gas?1.25:2.4,dt
+);
+
+let accel=(traction*.95)-(speed/250*.13);
+
+if(keys.brake){
+braking=THREE.MathUtils.damp(braking,1,4,dt);
+accel-=2.7*braking;
+}else{
+braking=THREE.MathUtils.damp(braking,0,2,dt);
+}
+
+speed=THREE.MathUtils.clamp(
+speed+accel*dt*3.6,0,250
+);
+
+// Повороты
+if(keys.left)steer=Math.max(-1,steer-1.6*dt);
+if(keys.right)steer=Math.min(1,steer+1.6*dt);
+if(!keys.left&&!keys.right)steer*=.96;
+
+offset=THREE.MathUtils.lerp(offset,steer*.9,.04);
+train.position.x=offset;
+
+train.rotation.z=THREE.MathUtils.lerp(
+train.rotation.z,-steer*.018,.05
+);
+
+// Движение окружения
+let metres=speed/3.6*dt;
+distance+=metres;
+
+track.position.z=(track.position.z+metres)%4.5;
+scenery.position.z=(scenery.position.z+metres)%12;
+signalGroup.position.z=(signalGroup.position.z+metres)%115;
+gate.position.z=(gate.position.z+metres)%650;
+
+rings.forEach(r=>{
+r.position.z+=metres;
+
+if(r.position.z>10){
+r.position.z-=665;
+score+=100;
+}
+});
+
+// Звук торможения
+if(keys.brake&&speed>10&&now-lastBrakeSound>7000){
+sounds.brake.currentTime=0;
+sounds.brake.play().catch(()=>{});
+lastBrakeSound=now;
+}
+
+// Задания
+if(speed>=120&&missionStep===0){
+missionStep=1;
+score+=100;
+setMission('Отлично! Следующая цель — 160 км/ч. Следи за сигналами.');
+}
+
+if(distance>500&&missionStep===1){
+missionStep=2;
+setMission('Задание по безопасности: не выходи на пути и не пересекай ограждения.');
+}
+
+// Звук двигателя
+engineGain.gain.setTargetAtTime(
+.001+speed/250*.018,
+audioCtx.currentTime,.2
+);
+
+engineOsc.frequency.setTargetAtTime(
+35+speed*1.0,
+audioCtx.currentTime,.15
+);
+
+// Интерфейс
+$('#speed').textContent=Math.round(speed);
+$('#score').textContent='Очки: '+score;
+$('#power').style.width=(traction*100)+'%';
+}
+
+// Камера
+let camX=mode==='drive'?offset*.3:0;
+
+camera.position.lerp(
+new THREE.Vector3(camX,5.6,17),.035
+);
+
+camera.lookAt(camX*.4,1.8,-24);
+
+renderer.render(scene,camera);
+}
+
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
+
